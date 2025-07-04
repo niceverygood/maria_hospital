@@ -67,7 +67,7 @@ interface RequestBody {
   type?: 'chat' | 'suggestions';
 }
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event) => {
   // CORS 헤더 설정
   const headers = {
     'Access-Control-Allow-Origin': '*',
