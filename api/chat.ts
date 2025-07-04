@@ -67,7 +67,34 @@ interface RequestBody {
   type?: 'chat' | 'suggestions';
 }
 
-export async function POST(request: Request) {
+// Vercel Edge Function handler
+export default async function handler(request: Request) {
+  // CORS 헤더 설정
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  // OPTIONS 요청 처리 (CORS preflight)
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  // POST 요청만 허용
+  if (request.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method Not Allowed' }),
+      { 
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+
   try {
     const body: RequestBody = await request.json();
     const { messages, type = 'chat' } = body;
@@ -77,7 +104,7 @@ export async function POST(request: Request) {
         JSON.stringify({ error: 'Messages array is required' }),
         { 
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -110,13 +137,13 @@ export async function POST(request: Request) {
         const questions = suggestions.split('|').map(q => q.trim()).filter(q => q.length > 0);
         return new Response(
           JSON.stringify({ suggestions: questions.slice(0, 3) }),
-          { headers: { 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       return new Response(
         JSON.stringify({ suggestions: ['진료시간 문의', '예약 방법', '비용 안내'] }),
-        { headers: { 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -141,7 +168,7 @@ export async function POST(request: Request) {
 
     return new Response(
       JSON.stringify({ content }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
@@ -150,7 +177,7 @@ export async function POST(request: Request) {
       JSON.stringify({ error: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.' }),
       { 
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
