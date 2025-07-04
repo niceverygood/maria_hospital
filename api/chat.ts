@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -57,14 +56,29 @@ const SUGGESTION_SYSTEM_PROMPT = `당신은 마리아 의원 AI 상담봇의 제
 - 예약 관련 → "의사 선택|검사 준비|주차 정보"  
 - 증상 문의 → "전문의 상담|응급도 확인|준비물 안내"`;
 
-export async function POST(request: NextRequest) {
+// 타입 정의
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+interface RequestBody {
+  messages: Message[];
+  type?: 'chat' | 'suggestions';
+}
+
+export async function POST(request: Request) {
   try {
-    const { messages, type = 'chat' } = await request.json();
+    const body: RequestBody = await request.json();
+    const { messages, type = 'chat' } = body;
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: 'Messages array is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Messages array is required' }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
@@ -72,10 +86,10 @@ export async function POST(request: NextRequest) {
       // 제안 질문 생성
       const conversationContext = messages
         .slice(-4)
-        .map((msg: any) => `${msg.role}: ${msg.content}`)
+        .map((msg: Message) => `${msg.role}: ${msg.content}`)
         .join('\n');
 
-      const suggestionMessages = [
+      const suggestionMessages: Message[] = [
         { role: 'system', content: SUGGESTION_SYSTEM_PROMPT },
         { 
           role: 'user', 
@@ -94,18 +108,22 @@ export async function POST(request: NextRequest) {
       
       if (suggestions && suggestions.includes('|')) {
         const questions = suggestions.split('|').map(q => q.trim()).filter(q => q.length > 0);
-        return NextResponse.json({ suggestions: questions.slice(0, 3) });
+        return new Response(
+          JSON.stringify({ suggestions: questions.slice(0, 3) }),
+          { headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
-      return NextResponse.json({ 
-        suggestions: ['진료시간 문의', '예약 방법', '비용 안내'] 
-      });
+      return new Response(
+        JSON.stringify({ suggestions: ['진료시간 문의', '예약 방법', '비용 안내'] }),
+        { headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // 일반 채팅 응답
-    const openaiMessages = [
+    const openaiMessages: Message[] = [
       { role: 'system', content: MARIA_HOSPITAL_SYSTEM_PROMPT },
-      ...messages.map((msg: any) => ({
+      ...messages.map((msg: Message) => ({
         role: msg.role,
         content: msg.content
       }))
@@ -121,13 +139,19 @@ export async function POST(request: NextRequest) {
     const content = response.choices[0]?.message?.content || 
       '죄송합니다. 응답을 생성할 수 없습니다. 다시 시도해주세요.';
 
-    return NextResponse.json({ content });
+    return new Response(
+      JSON.stringify({ content }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('OpenAI API 오류:', error);
-    return NextResponse.json(
-      { error: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.' }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 } 
